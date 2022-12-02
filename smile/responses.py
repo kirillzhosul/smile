@@ -1,3 +1,7 @@
+"""
+    Response class types.
+"""
+import json
 from typing import Any, Optional, Mapping, List, Tuple
 from smile.types import Scope, Receive, Send
 
@@ -95,3 +99,27 @@ class HTMLResponse(BaseResponse):
     """
 
     http_media_type: Optional[str] = "text/html"
+
+
+class JSONResponse(BaseResponse):
+    """
+    Response with JSON.
+    """
+
+    http_media_type = "application/json"
+
+    def _render_body_to_content(
+        self, content: Any, *, _override_body_encoding_charset: Optional[str] = None
+    ) -> bytes:
+        encoding_charset = (
+            _override_body_encoding_charset
+            if _override_body_encoding_charset is not None
+            else self.http_body_encoding_charset
+        )
+        return json.dumps(
+            content,
+            ensure_ascii=False,
+            allow_nan=False,
+            indent=None,
+            separators=(",", ":"),
+        ).encode(encoding_charset)

@@ -19,6 +19,12 @@ async def tuple_response():
     return "Hello world!", 200
 
 
+@app.route("/json")
+async def json_response():
+    # Also allowed as tuple.
+    return {"key": "field", "number": 1}
+
+
 if __name__ == "__main__":
     from uvicorn import run
 

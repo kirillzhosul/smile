@@ -1,6 +1,6 @@
-from typing import Callable, Tuple
+from typing import Any, Callable, Optional, Tuple, Dict
 from inspect import iscoroutinefunction
-from smile.responses import BaseResponse, PlainResponse
+from smile.responses import BaseResponse, PlainResponse, JSONResponse
 from smile.types import Scope, Receive, Send
 
 
@@ -38,6 +38,23 @@ class Smile:
 
         return wrapper
 
+    def _wrap_response_in_response_class(self, response: Any) -> Optional[BaseResponse]:
+        """
+        Wraps response any in to the response class or returns None if dissalow type.
+        """
+        status_code = 200
+        if isinstance(response, Tuple) and len(response) >= 2:
+            content, status_code, *_ = response
+            if isinstance(content, (str, Dict)):
+                response = content
+        if isinstance(response, str):
+            response = PlainResponse(content=response, status_code=status_code)
+        if isinstance(response, Dict):
+            response = JSONResponse(content=response, status_code=status_code)
+        if not isinstance(response, BaseResponse):
+            return None
+        return response
+
     async def _handle_request_to_endpoint(
         self, scope: Scope, receive: Receive, send: Send
     ) -> None:
@@ -51,11 +68,7 @@ class Smile:
                     response = await route_endpoint_func()
                 else:
                     response = route_endpoint_func()
-                if isinstance(response, str):
-                    response = PlainResponse(content=response, status_code=200)
-                if isinstance(response, Tuple) and len(response) >= 2:
-                    content, status_code, *_ = response
-                    response = PlainResponse(content=content, status_code=status_code)
+                response = self._wrap_response_in_response_class(response)
                 if isinstance(response, BaseResponse):
                     return await response(scope, receive, send)
                 await send({"type": "http.response.start", "status": 500})
