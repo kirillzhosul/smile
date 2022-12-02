@@ -1,6 +1,6 @@
-from typing import Callable
+from typing import Callable, Tuple
 from inspect import iscoroutinefunction
-from smile.responses import BaseResponse
+from smile.responses import BaseResponse, PlainResponse
 from smile.types import Scope, Receive, Send
 
 
@@ -51,6 +51,11 @@ class Smile:
                     response = await route_endpoint_func()
                 else:
                     response = route_endpoint_func()
+                if isinstance(response, str):
+                    response = PlainResponse(content=response, status_code=200)
+                if isinstance(response, Tuple) and len(response) >= 2:
+                    content, status_code, *_ = response
+                    response = PlainResponse(content=content, status_code=status_code)
                 if isinstance(response, BaseResponse):
                     return await response(scope, receive, send)
                 await send({"type": "http.response.start", "status": 500})
@@ -72,4 +77,4 @@ class Smile:
             return
 
         self._alter_scope_on_call(scope)
-        self._handle_request_to_endpoint(scope, receive, send)
+        await self._handle_request_to_endpoint(scope, receive, send)
