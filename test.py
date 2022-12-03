@@ -1,4 +1,4 @@
-from smile import Smile, HTMLResponse
+from smile import Smile, HTMLResponse, Request
 
 app = Smile()
 
@@ -34,9 +34,28 @@ async def optional_args(number: int = 0, string: str = ""):
     return {"number": number, "string": string}
 
 
+@app.route("/exception")
+async def exception():
+    return str(1 / 0)
+
+
+@app.route("/request_arg")
+async def request_arg(request: Request):
+    return {
+        "request.url": {"path": request.url.path, "query_args": request.url.query_args},
+        "request.headers": request.headers,
+    }
+
+
 @app.route("/kwargs")
 async def kwargs_response(**kwargs):
     return {"kwargs": kwargs}
+
+
+app.add_error_handler(404, lambda: ("404 Not Found! (Custom error handler)", 404))
+app.add_error_handler(
+    500, lambda: ("500 Internal Server Error! (Custom error handler)", 404)
+)
 
 
 if __name__ == "__main__":

@@ -1,8 +1,10 @@
-from typing import Any, Callable, List, Optional, Tuple, Dict, Union
+from typing import Any, Callable, Optional, Tuple, Dict, Union
 from inspect import iscoroutinefunction, signature
 from inspect import Parameter as SignatureParameter
 from smile.responses import BaseResponse, PlainResponse, JSONResponse
 from smile.types import Scope, Receive, Send
+from smile.routing import parse_args_from_scope
+from smile.requests import Request
 
 
 class Smile:
@@ -12,12 +14,14 @@ class Smile:
 
     def __init__(self):
         self.routes = dict()  # TODO: Rework routes system.
+        self.error_handlers = dict()
 
     def _alter_scope_on_call(self, scope: Scope) -> None:
         """
         Alters scope on call with required values.
         """
         scope["app"] = self
+        scope["state"] = dict()
 
     def add_route(self, path: str, endpoint_func: Callable) -> None:
         # TODO: Rework routes system.
@@ -39,6 +43,9 @@ class Smile:
 
         return wrapper
 
+    def add_error_handler(self, status_code: int, error_handler: Callable) -> None:
+        self.error_handlers[status_code] = error_handler
+
     def _wrap_response_in_response_class(self, response: Any) -> Optional[BaseResponse]:
         """
         Wraps response any in to the response class or returns None if dissalow type.
@@ -57,7 +64,7 @@ class Smile:
         return response
 
     def _build_endpoint_func_args(
-        self, endpoint_func: Callable, parsed_args: Dict[str, Any]
+        self, endpoint_func: Callable, parsed_args: Dict[str, Any], scope: Scope
     ) -> Union[Dict[str, Any], BaseResponse]:
         endpoint_func_signature = signature(endpoint_func)
         endpoint_kwargs = dict()
@@ -84,11 +91,16 @@ class Smile:
                     status_code=400,
                 )
             param_is_missing = False
+            param_is_internal = param_type in (Request,)
             try:
                 parsed_param_value = parsed_args[param.name]
             except KeyError:
                 param_is_missing = True
-                if param.default == SignatureParameter.empty:
+                if param_is_internal:
+                    if param_type == Request:
+                        param_is_missing = False
+                        parsed_param_value = Request(scope=scope)
+                elif param.default == SignatureParameter.empty:
                     return PlainResponse(
                         f"Validation error! {param.name} is missing!", status_code=400
                     )
@@ -96,7 +108,16 @@ class Smile:
                 param_value = param.default
             else:
                 try:
-                    param_value = param_type(parsed_param_value)
+                    param_value = (
+                        parsed_param_value
+                        if param_is_internal
+                        else param_type(parsed_param_value)
+                    )
+                except TypeError:
+                    return PlainResponse(
+                        f"Validation error! {param.name} has invalid type (signature)!",
+                        status_code=400,
+                    )
                 except ValueError:
                     return PlainResponse(
                         f"Validation error! {param.name} has invalid value!",
@@ -105,19 +126,20 @@ class Smile:
             endpoint_kwargs[param.name] = param_value
         return endpoint_kwargs
 
-    def _parse_args_from_scope(self, scope: Scope) -> Dict[str, str]:
-        query_args = scope.get("query_string", b"").decode("utf-8").split("&")
-        parsed_args = dict()
-        for query_arg in query_args:
-            if not query_arg:
-                continue
-            query_args_name, query_arg_value = query_arg.split("=")
-            parsed_args[query_args_name] = query_arg_value
-        return parsed_args
+    def _process_with_error_handlers(self, response: BaseResponse):
+        for target_status_code, error_handler in self.error_handlers.items():
+            if response.http_status_code == target_status_code:
+                error_handler_response = self._wrap_response_in_response_class(
+                    error_handler()
+                )
+                if not isinstance(error_handler_response, BaseResponse):
+                    return PlainResponse("Internal Server Error!", status_code=500)
+                return error_handler_response
+        return response
 
     async def _handle_request_to_endpoint(
         self, scope: Scope, receive: Receive, send: Send
-    ) -> None:
+    ) -> BaseResponse:
         """
         Handles request and returns Response.
         """
@@ -126,26 +148,29 @@ class Smile:
             if route_path == requested_path:
                 endpoint_kwargs = self._build_endpoint_func_args(
                     endpoint_func=route_endpoint_func,
-                    parsed_args=self._parse_args_from_scope(scope=scope),
+                    parsed_args=parse_args_from_scope(scope=scope),
+                    scope=scope,
                 )
                 if isinstance(endpoint_kwargs, BaseResponse):
-                    return await endpoint_kwargs(scope, receive, send)
-                if iscoroutinefunction(route_endpoint_func):
-                    response = await route_endpoint_func(**endpoint_kwargs)
-                else:
-                    response = route_endpoint_func(**endpoint_kwargs)
-                response = self._wrap_response_in_response_class(response)
+                    return endpoint_kwargs
+                try:
+                    if iscoroutinefunction(route_endpoint_func):
+                        response = await route_endpoint_func(**endpoint_kwargs)
+                    else:
+                        response = route_endpoint_func(**endpoint_kwargs)
+                    response = self._wrap_response_in_response_class(response)
+                except BaseException as _route_handle_exception:
+                    response = self._process_with_error_handlers(
+                        response=PlainResponse(
+                            content="Internal Server Error!", status_code=500
+                        )
+                    )
+                    await response.__call__(scope, receive, send)
+                    raise _route_handle_exception
                 if isinstance(response, BaseResponse):
-                    return await response(scope, receive, send)
-                await send({"type": "http.response.start", "status": 500})
-                await send(
-                    {
-                        "type": "http.response.body",
-                        "body": "Internal Server Error".encode("utf-8"),
-                    }
-                )
-        await send({"type": "http.response.start", "status": 404})
-        await send({"type": "http.response.body", "body": "Not Found".encode("utf-8")})
+                    return response
+                return PlainResponse(content="Internal Server Error!", status_code=500)
+        return PlainResponse(content="Not Found!", status_code=404)
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         """
@@ -156,4 +181,6 @@ class Smile:
             return
 
         self._alter_scope_on_call(scope)
-        await self._handle_request_to_endpoint(scope, receive, send)
+        raw_response = await self._handle_request_to_endpoint(scope, receive, send)
+        response = self._process_with_error_handlers(response=raw_response)
+        await response.__call__(scope, receive, send)
