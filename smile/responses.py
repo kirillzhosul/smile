@@ -16,7 +16,7 @@ class BaseResponse:
     def __init__(
         self,
         content: Any,
-        status_code: int,
+        status_code: int = 200,
         headers: Optional[Mapping[str, str]] = None,
         media_type: Optional[str] = None,
     ):

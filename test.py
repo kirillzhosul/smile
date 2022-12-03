@@ -1,6 +1,5 @@
 from smile import Smile, HTMLResponse
 
-
 app = Smile()
 
 
@@ -23,6 +22,21 @@ async def tuple_response():
 async def json_response():
     # Also allowed as tuple.
     return {"key": "field", "number": 1}
+
+
+@app.route("/required_args")
+async def required_args(number: int, string: str):
+    return {"number": number, "string": string}
+
+
+@app.route("/optional_args")
+async def optional_args(number: int = 0, string: str = ""):
+    return {"number": number, "string": string}
+
+
+@app.route("/kwargs")
+async def kwargs_response(**kwargs):
+    return {"kwargs": kwargs}
 
 
 if __name__ == "__main__":
