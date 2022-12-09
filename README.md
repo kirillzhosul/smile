@@ -17,6 +17,19 @@ async def test_route():
 
 ```
 
+### Roadmap.
+
+- [x] ASGI app
+- [x] Route && decorators.
+- [x] Params (with special internal types).
+- [x] Error handlers (for code).
+- [] Exception error handlers.
+- [] Rework routing system with more advanced solution.
+- [] Body data fetching.
+- [] Middlewares
+- [] Templating engine? (Jinja?)
+- [] Allow to set route allowed methods.
+
 ### Running with Uvicorn
 
 ```python
