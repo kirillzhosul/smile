@@ -91,7 +91,7 @@ class Smile:
                     status_code=400,
                 )
             param_is_missing = False
-            param_is_internal = param_type in (Request,)
+            param_is_internal = param_type in (Request, Smile)
             try:
                 parsed_param_value = parsed_args[param.name]
             except KeyError:
@@ -100,6 +100,9 @@ class Smile:
                     if param_type == Request:
                         param_is_missing = False
                         parsed_param_value = Request(scope=scope)
+                    elif param_type == Smile:
+                        param_is_missing = False
+                        parsed_param_value = self
                 elif param.default == SignatureParameter.empty:
                     return PlainResponse(
                         f"Validation error! {param.name} is missing!", status_code=400

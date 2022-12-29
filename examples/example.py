@@ -52,6 +52,11 @@ async def kwargs_response(**kwargs):
     return {"kwargs": kwargs}
 
 
+@app.route("/app")
+async def app_param(app: Smile):
+    return {"dir": dir(app)}
+
+
 app.add_error_handler(404, lambda: ("404 Not Found! (Custom error handler)", 404))
 app.add_error_handler(
     500, lambda: ("500 Internal Server Error! (Custom error handler)", 404)
