@@ -59,9 +59,8 @@ async def app_param(app: Smile):
 
 app.add_error_handler(404, lambda: ("404 Not Found! (Custom error handler)", 404))
 app.add_error_handler(
-    500, lambda: ("500 Internal Server Error! (Custom error handler)", 404)
+    500, lambda: ("500 Internal Server Error! (Custom error handler)", 500)
 )
-
 
 if __name__ == "__main__":
     from uvicorn import run
