@@ -37,16 +37,15 @@ async def json_response(required_query_param: str):
 ### Roadmap.
 
 - [x] ASGI app
-- [x] Route && decorators.
+- [x] Route && decorators (with allowed HTTP methods).
 - [x] Params (with special internal types).
 - [x] Error handlers (for code).
+- [x] Templating engine (Jinja2)
 - [ ] Rework routing system with more advanced solution.
-- [ ] Allow to set route allowed methods.
 - [ ] Body data fetching.
 - [ ] Exception error handlers.
 - [ ] Middlewares
 - [ ] Refactor code and internal caused responses.
-- [ ] Templating engine? (Jinja?)
 - [ ] More...
 
 ### Running with Uvicorn

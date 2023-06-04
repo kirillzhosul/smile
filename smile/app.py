@@ -36,14 +36,19 @@ class Smile:
         """
         Inclde router with all routes handlers in it.
         """
-        for route_path, route_func in router.routes.items():
-            self.add_route(route_path, route_func)
+        for route_path, route_data in router.routes.items():
+            route_func, methods = route_data
+            self.add_route(route_path, route_func, methods)
 
-    def add_route(self, path: str, endpoint_func: Callable) -> None:
+    def add_route(
+        self, path: str, endpoint_func: Callable, methods: list[str] | None = None
+    ) -> None:
         # TODO: Rework routes system.
-        self.routes[path] = endpoint_func
+        if methods is None:
+            methods = ["GET"]
+        self.routes[path] = endpoint_func, methods
 
-    def route(self, path: str) -> Callable:
+    def route(self, path: str, methods: list[str] | None = None) -> Callable:
         """
         Route decorator for endpoing function.
 
@@ -54,7 +59,7 @@ class Smile:
         """
 
         def wrapper(route_func: Callable) -> Callable:
-            self.add_route(path=path, endpoint_func=route_func)
+            self.add_route(path=path, endpoint_func=route_func, methods=methods)
             return route_func
 
         return wrapper
@@ -206,8 +211,20 @@ class Smile:
         Handles request and returns Response.
         """
         requested_path = scope.get("path", "/")
-        for route_path, route_endpoint_func in self.routes.items():
+        requested_method = scope.get("method", "GET")
+        for route_path, route_data in self.routes.items():
+            route_endpoint_func, route_http_methods = route_data
+            print(route_endpoint_func, route_http_methods)
             if route_path == requested_path:
+                http_method_is_allowed = any(
+                    route_http_method == "*" or requested_method == route_http_method
+                    for route_http_method in route_http_methods
+                )
+                if not http_method_is_allowed:
+                    return PlainResponse(
+                        f"Method {requested_method} is not allowed for {requested_path}!",
+                        status_code=405,
+                    )
                 endpoint_kwargs = self._build_endpoint_func_args(
                     endpoint_func=route_endpoint_func,
                     parsed_args=parse_args_from_scope(scope=scope),

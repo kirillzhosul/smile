@@ -11,11 +11,15 @@ class Router:
     def __init__(self):
         self.routes = dict()  # TODO: Rework routes system.
 
-    def add_route(self, path: str, endpoint_func: Callable) -> None:
+    def add_route(
+        self, path: str, endpoint_func: Callable, methods: list[str] | None = None
+    ) -> None:
         # TODO: Rework routes system.
-        self.routes[path] = endpoint_func
+        if methods is None:
+            methods = ["GET"]
+        self.routes[path] = endpoint_func, methods
 
-    def route(self, path: str) -> Callable:
+    def route(self, path: str, methods: list[str] | None = None) -> Callable:
         """
         Route decorator for endpoing function.
 
@@ -26,7 +30,7 @@ class Router:
         """
 
         def wrapper(route_func: Callable) -> Callable:
-            self.add_route(path=path, endpoint_func=route_func)
+            self.add_route(path=path, endpoint_func=route_func, methods=methods)
             return route_func
 
         return wrapper

@@ -20,7 +20,7 @@ async def tuple_response():
     return "Hello world!", 200
 
 
-@router.route("/json")
+@router.route("/json", methods=["POST"])
 async def json_response():
     # Also allowed as tuple.
     return {"key": "field", "number": 1}
