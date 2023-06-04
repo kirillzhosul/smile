@@ -2,10 +2,11 @@
     Smile ASGI framework.
 """
 
-from smile.types import Scope, Receive, Send, Message
-from smile.app import Smile
+from smile.types import Send, Scope, Receive, Message
+from smile.routing import Router
 from smile.responses import PlainResponse, HTMLResponse
 from smile.requests import Request
+from smile.app import Smile
 
 __all__ = [
     "Scope",
@@ -16,4 +17,5 @@ __all__ = [
     "Request",
     "PlainResponse",
     "HTMLResponse",
+    "Router",
 ]

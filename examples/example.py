@@ -1,24 +1,26 @@
-from smile import Smile, HTMLResponse, Request
+from smile import Smile, Router, Request, HTMLResponse
 
 app = Smile()
 
+router = Router()
 
-@app.route("/html")
+
+@router.route("/html")
 async def html_response():
     return HTMLResponse("<h1>Hello world!</h1>", 200)
 
 
-@app.route("/plain")
+@router.route("/plain")
 async def plain_response():
     return "Hello world!"
 
 
-@app.route("/tuple")
+@router.route("/tuple")
 async def tuple_response():
     return "Hello world!", 200
 
 
-@app.route("/json")
+@router.route("/json")
 async def json_response():
     # Also allowed as tuple.
     return {"key": "field", "number": 1}
@@ -61,6 +63,7 @@ app.add_error_handler(404, lambda: ("404 Not Found! (Custom error handler)", 404
 app.add_error_handler(
     500, lambda: ("500 Internal Server Error! (Custom error handler)", 500)
 )
+app.include_router(router)
 
 if __name__ == "__main__":
     from uvicorn import run

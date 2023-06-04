@@ -1,5 +1,35 @@
-from typing import Dict
+from typing import Dict, Callable
+
 from smile.types import Scope
+
+
+class Router:
+    """
+    Router class for route registration without app (includes at top layer).
+    """
+
+    def __init__(self):
+        self.routes = dict()  # TODO: Rework routes system.
+
+    def add_route(self, path: str, endpoint_func: Callable) -> None:
+        # TODO: Rework routes system.
+        self.routes[path] = endpoint_func
+
+    def route(self, path: str) -> Callable:
+        """
+        Route decorator for endpoing function.
+
+        Use example:
+        @app.route("/path")
+        def route():
+            return BaseResponse("Hello world!")
+        """
+
+        def wrapper(route_func: Callable) -> Callable:
+            self.add_route(path=path, endpoint_func=route_func)
+            return route_func
+
+        return wrapper
 
 
 def parse_args_from_scope(scope: Scope) -> Dict[str, str]:

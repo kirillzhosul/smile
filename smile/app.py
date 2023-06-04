@@ -1,9 +1,10 @@
-from typing import Any, Callable, MutableMapping, Optional, Tuple, Dict, Type, Union
-from inspect import iscoroutinefunction, signature
+from typing import Union, Tuple, Optional, MutableMapping, Dict, Callable, Any
+from inspect import signature, iscoroutinefunction
 from inspect import Parameter as SignatureParameter
-from smile.responses import BaseResponse, HTMLResponse, PlainResponse, JSONResponse
-from smile.types import Scope, Receive, Send
-from smile.routing import parse_args_from_scope
+
+from smile.types import Send, Scope, Receive
+from smile.routing import parse_args_from_scope, Router
+from smile.responses import PlainResponse, JSONResponse, HTMLResponse, BaseResponse
 from smile.requests import Request
 
 try:
@@ -30,6 +31,13 @@ class Smile:
         """
         scope["app"] = self
         scope["state"] = dict()
+
+    def include_router(self, router: Router) -> None:
+        """
+        Inclde router with all routes handlers in it.
+        """
+        for route_path, route_func in router.routes.items():
+            self.add_route(route_path, route_func)
 
     def add_route(self, path: str, endpoint_func: Callable) -> None:
         # TODO: Rework routes system.
@@ -87,28 +95,31 @@ class Smile:
         Wraps response any in to the response class or returns None if dissalow type.
         """
         status_code = 200
-        if self._jinja_env is not None and jinja_is_installed:
-            if isinstance(response, jinja2.Template):
-                return HTMLResponse(
-                    content=await response.render_async(), status_code=status_code
-                )
+        if (
+            isinstance(response, jinja2.Template)
+            and self._jinja_env is not None
+            and jinja_is_installed
+        ):
+            return HTMLResponse(
+                content=await response.render_async(), status_code=status_code
+            )
         if isinstance(response, Tuple) and len(response) >= 2:
             content, status_code, *_ = response
             if isinstance(content, (str, Dict)):
                 response = content
-            if self._jinja_env is not None and jinja_is_installed:
-                if isinstance(content, jinja2.Template):
-                    return HTMLResponse(
-                        content=await response.render_async(), status_code=status_code
-                    )
+            if (
+                isinstance(content, jinja2.Template)
+                and self._jinja_env is not None
+                and jinja_is_installed
+            ):
+                return HTMLResponse(
+                    content=await response.render_async(), status_code=status_code
+                )
         if isinstance(response, str):
             response = PlainResponse(content=response, status_code=status_code)
         if isinstance(response, Dict):
             response = JSONResponse(content=response, status_code=status_code)
-        if not isinstance(response, BaseResponse):
-            return None
-
-        return response
+        return response if isinstance(response, BaseResponse) else None
 
     def _build_endpoint_func_args(
         self, endpoint_func: Callable, parsed_args: Dict[str, Any], scope: Scope
@@ -129,7 +140,7 @@ class Smile:
                 SignatureParameter.VAR_KEYWORD,
             ):
                 return PlainResponse(
-                    f"Validation error! Has nothing to do with *args or **kwargs params, currently (or forever) is not supported by framework!",
+                    "Validation error! Has nothing to do with *args or **kwargs params, currently (or forever) is not supported by framework!",
                     status_code=400,
                 )
             if param_type == SignatureParameter.empty:
